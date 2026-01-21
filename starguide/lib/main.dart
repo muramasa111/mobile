@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
+import 'StarView.dart';
+//import '../sample/SecondPage.dart';
+//import '../sample/ThirdPage.dart';
+import 'HomePage.dart';
+//import 'List/CouponListView.dart';
+///mport 'MainPageWidget.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
+
+//ListViewのダミーメソッド
+//void dummyDatail() {}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -30,7 +39,21 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      //home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      // home: HomePage(),
+      /*
+      //最初のページ名
+      initialRoute: '/home',
+      //ページ名とウィジェットの関係
+      routes: {
+        '/home': (context) => HomePage(),
+        '/first': (context) => FirstPage(),
+        '/second': (context) => Secondpage(),
+        '/third': (context) => Thirdpage(),
+      },
+*/
+      //home: CouponListView(dummyDatail),
+      home: HomePage(),
     );
   }
 }
