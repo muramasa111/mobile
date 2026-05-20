@@ -392,6 +392,64 @@ setState(() {
 
 ---
 
+## タップやドラッグを受け取る
+
+### 使うもの
+
+`GestureDetector`
+
+### 何に使うか
+
+`GestureDetector` は、タップ・ドラッグ・長押しなどの操作を受け取るWidgetです。
+
+今回のアプリでは、星をタップしたり、画面をドラッグして星空を動かしたりするために使います。
+
+### タップを受け取る
+
+```dart
+GestureDetector(
+  onTapDown: (details) {
+    final position = details.localPosition;
+    print(position);
+  },
+  child: CustomPaint(
+    painter: StarPainter(
+      constellation: constellation,
+    ),
+  ),
+)
+```
+
+### 意味
+
+| 書き方 | 意味 |
+|---|---|
+| `GestureDetector` | 操作を受け取るWidget |
+| `onTapDown` | タップされた瞬間に呼ばれる処理 |
+| `details.localPosition` | タップされた位置 |
+| `child` | 操作を受け取る対象のWidget |
+
+### ドラッグを受け取る
+
+```dart
+GestureDetector(
+  onPanUpdate: (details) {
+    final movement = details.delta;
+    print(movement);
+  },
+  child: CustomPaint(
+    painter: StarPainter(
+      constellation: constellation,
+    ),
+  ),
+)
+```
+
+`details.delta` は、前回からどれだけ指が動いたかを表します。
+
+
+---
+
 ## 書き方の基本パターン
 
 Flutterでは、だいたい次の形で書きます。
