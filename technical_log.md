@@ -114,3 +114,46 @@
 ### 星をつなぐ処理
 - 星を選ぶ、線をつなぐ、完成判定を行う部分は専用ライブラリなしで実装する。
 - CustomPainter、GestureDetector、自前の星座データで実現する。
+
+## 2026-05-20 10:10 +09:00
+
+### 対応端末方針
+- デモ版はAndroidのみを対象にする。
+- iOS/iPad対応は今回の範囲外にする。
+- 権限設定、センサー検証、実機テストはAndroidに絞って進める。
+
+## 2026-05-20 10:16 +09:00
+
+### 星データ方針
+- 星データは4星座分を手入力に近い形で用意する。
+- 外部データを丸ごと取り込むより、デモに必要な星と線だけを整理して持つ。
+
+### 完成条件
+- 星座の形を覚えることも目的なので、主要な線だけでなく細かい線まで含める。
+- 各星座に定義した星座線をすべて正しくつないだら完成にする。
+
+### デモ操作方針
+- 発表はパソコン内でのデモになる可能性が高い。
+- センサー操作だけでなく、画面ドラッグで星空を動かせるモードを用意する。
+- ドラッグ操作は、センサーが使えない環境や不安定な場合の逃げ道にする。
+
+## 2026-05-20 10:21 +09:00
+
+### 現在のプロジェクト調査
+- `starguide` はFlutterプロジェクト。
+- `pubspec.yaml` はほぼ初期状態で、追加ライブラリはまだ入っていない。
+- `lib/main.dart` はFlutter初期テンプレートのカウンターコードが残っているが、実際のhomeは `HomePage`。
+- `HomePage` から `StarView`、`ConstellationList`、`ConstellationDetail`、`Settings` に遷移する仮画面がある。
+- `StarView`、`ConstellationList`、`ConstellationDetail`、`Settings` は中身が仮テキスト。
+- `test/widget_test.dart` は初期カウンター用テストのままで、現在のアプリ構成とは合っていない。
+- Androidの `AndroidManifest.xml` には位置情報などの権限設定はまだない。
+
+### 実行環境メモ
+- `flutter --version` と `flutter analyze` は、Flutter SDK `C:/Users/guslg/flutter` のGit safe.directory設定で停止した。
+- 実装後にFlutterコマンドで検証するには、`git config --global --add safe.directory C:/Users/guslg/flutter` が必要になる可能性が高い。
+
+### 実装開始時の推奨順序
+- まず、既存の仮画面を活かしつつ星空ビューの試作から始める。
+- 最初は追加ライブラリを入れず、CustomPainter、GestureDetector、ドラッグ操作、自前データで星を描く。
+- その後、星を選ぶ、線をつなぐ、完成判定、図鑑状態へ進める。
+- 位置情報や端末センサーは、ゲーム部分が動いてから追加する。
