@@ -64,6 +64,34 @@ Scaffold(
 - `appBar` は上のバー。
 - `body` は画面の中身。
 
+### Scaffoldの中身
+
+```dart
+return Scaffold(
+  appBar: AppBar(
+    title: Text("天体観測"),
+  ),
+  body: Center(
+    child: Text("Star View"),
+  ),
+);
+```
+
+| 書き方 | 意味 |
+|---|---|
+| `return` | この画面に表示するWidgetを返す |
+| `Scaffold` | 画面全体の基本構造 |
+| `appBar` | 画面上部のバー |
+| `AppBar` | 上部バーのWidget |
+| `title` | AppBarに表示するタイトル |
+| `body` | AppBar以外のメイン部分 |
+| `Center` | 中身を中央に置くWidget |
+| `child` | 中に入れるWidgetが1つのときに使う |
+
+`body` には、画面のメイン表示を書きます。
+
+今回なら、最終的に `body` に星空表示を入れます。
+
 ---
 
 ## 文字を表示する
@@ -513,6 +541,60 @@ const vega = Star(
 ```
 
 `this.id` は、「このクラスが持っている `id` に値を入れる」という意味です。
+
+### コンストラクタとは
+
+コンストラクタは、クラスから実際のデータや部品を作るときの書き方です。
+
+例えば `Star` クラスにこのようなコンストラクタがあります。
+
+```dart
+const Star({
+  required this.id,
+  required this.name,
+  required this.x,
+  required this.y,
+});
+```
+
+これがあると、次のように `Star` を作れます。
+
+```dart
+const vega = Star(
+  id: "vega",
+  name: "ベガ",
+  x: 120,
+  y: 80,
+);
+```
+
+`StarPainter` でも同じです。
+
+```dart
+class StarPainter extends CustomPainter {
+  final Constellation constellation;
+
+  StarPainter({
+    required this.constellation,
+  });
+}
+```
+
+このコンストラクタがあると、外から星座データを渡して `StarPainter` を作れます。
+
+```dart
+StarPainter(
+  constellation: constellation,
+)
+```
+
+### なぜコンストラクタが必要か
+
+クラスの中で使いたい値を、外から渡すためです。
+
+今回なら、`StarPainter` は星を描くために星座データが必要です。
+
+そのため、`constellation` をコンストラクタで受け取ります。
 
 ---
 

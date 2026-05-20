@@ -30,3 +30,38 @@
 - `lib/models/star.dart` に `Star` クラスを作成済み。
 - `lib/models/constellation_edge.dart` に `ConstellationEdge` クラスを作成済み。
 - 次は星座全体を表す `Constellation` クラスを作る予定。
+
+## 2026-05-20 14:53 +09:00
+
+### 今日扱った内容
+- `StarView` に `CustomPaint` を配置した。
+- `StarPainter extends CustomPainter` を作成した。
+- `paint` メソッド内で `canvas.drawCircle` を使い、星のような丸を描画した。
+- 色を `Colors.red` にして、画面上に丸が表示されることを確認した。
+
+### 理解したこと
+- `CustomPaint` は自由に図形を描くためのWidget。
+- `CustomPainter` は実際の描画処理を書くクラス。
+- `canvas.drawCircle` で丸を描ける。
+- `Offset(x, y)` で描画位置を指定する。
+
+## 2026-05-20 15:15 +09:00
+
+### 今日扱った内容
+- `StarPainter` に `Constellation` データを渡すようにした。
+- `constellations[0]` から星座データを1つ取り出した。
+- `for (final star in constellation.stars)` で星のリストを順番に処理した。
+- `star.x`、`star.y` を使って、データに登録した星を画面に描画した。
+
+### 現在の進捗
+- `constellation_data.dart` の星データから、画面に点を2つ表示できた。
+
+## 2026-05-20 15:48 +09:00
+
+### 今日扱った内容
+- `StarView` を `StatelessWidget` から `StatefulWidget` に変更した。
+- `StatefulWidget` では `createState()` を使って、状態を管理する `State` クラスを作ることを確認した。
+- `StatefulWidget` は大文字小文字を正確に書く必要があることを確認した。
+
+### 現在の進捗
+- 星をタップして選択する準備として、`StarView` が状態を持てる形になった。
