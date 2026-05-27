@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'data/constellation_data.dart';
 import 'models/constellation.dart';
+import 'models/star.dart';
 //import '../sample/SecondPage.dart';
 
 class StarView extends StatefulWidget {
@@ -9,6 +10,20 @@ class StarView extends StatefulWidget {
 }
 
 class _StarViewState extends State<StarView> {
+  Star? _findTappedStar(Offset position, Constellation constellation) {
+    const tapRadius = 16.0;
+
+    for (final star in constellation.stars) {
+      final starPosition = Offset(star.x, star.y);
+
+      if ((starPosition - position).distance <= tapRadius) {
+        return star;
+      }
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final constellation = constellations[0];
@@ -20,7 +35,11 @@ class _StarViewState extends State<StarView> {
         child: GestureDetector(
           onTapDown: (details) {
             final position = details.localPosition;
-            print(position); // Handle tap down event
+            final tappedStar = _findTappedStar(position, constellation);
+
+            if (tappedStar != null) {
+              debugPrint('Tapped star: ${tappedStar.name}');
+            }
           },
           child: CustomPaint(
             painter: StarPainter(constellation: constellation),
