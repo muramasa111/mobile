@@ -10,6 +10,8 @@ class StarView extends StatefulWidget {
 }
 
 class _StarViewState extends State<StarView> {
+  Star? _selectedStar;
+
   Star? _findTappedStar(Offset position, Constellation constellation) {
     const tapRadius = 16.0;
 
@@ -38,11 +40,16 @@ class _StarViewState extends State<StarView> {
             final tappedStar = _findTappedStar(position, constellation);
 
             if (tappedStar != null) {
-              debugPrint('Tapped star: ${tappedStar.name}');
+              setState(() {
+                _selectedStar = tappedStar;
+              });
             }
           },
           child: CustomPaint(
-            painter: StarPainter(constellation: constellation),
+            painter: StarPainter(
+              constellation: constellation,
+              selectedStar: _selectedStar,
+            ),
           ),
         ),
       ),
@@ -52,20 +59,30 @@ class _StarViewState extends State<StarView> {
 
 class StarPainter extends CustomPainter {
   final Constellation constellation;
+  final Star? selectedStar;
 
-  StarPainter({required this.constellation});
+  StarPainter({
+    required this.constellation,
+    required this.selectedStar,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.red;
-
     for (final star in constellation.stars) {
-      canvas.drawCircle(Offset(star.x, star.y), 4, paint);
+      final isSelected = selectedStar?.id == star.id;
+      final paint = Paint()
+        ..color = isSelected ? Colors.yellow : Colors.red;
+
+      canvas.drawCircle(
+        Offset(star.x, star.y),
+        isSelected ? 7 : 4,
+        paint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
+  bool shouldRepaint(covariant StarPainter oldDelegate) {
+    return oldDelegate.selectedStar?.id != selectedStar?.id;
   }
 }
