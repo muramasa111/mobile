@@ -26,6 +26,18 @@ class _StarViewState extends State<StarView> {
     return null;
   }
 
+  void _handleTappedStar(Star tappedStar) {
+    final previousStar = _selectedStar;
+
+    if (previousStar != null && previousStar.id != tappedStar.id) {
+      debugPrint('Tapped pair: ${previousStar.name} -> ${tappedStar.name}');
+    }
+
+    setState(() {
+      _selectedStar = tappedStar;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final constellation = constellations[0];
@@ -40,9 +52,7 @@ class _StarViewState extends State<StarView> {
             final tappedStar = _findTappedStar(position, constellation);
 
             if (tappedStar != null) {
-              setState(() {
-                _selectedStar = tappedStar;
-              });
+              _handleTappedStar(tappedStar);
             }
           },
           child: CustomPaint(
