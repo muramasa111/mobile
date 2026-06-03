@@ -26,11 +26,40 @@ class _StarViewState extends State<StarView> {
     return null;
   }
 
-  void _handleTappedStar(Star tappedStar) {
+  bool _isCorrectPair(
+    Star firstStar,
+    Star secondStar,
+    Constellation constellation,
+  ) {
+    for (final edge in constellation.edges) {
+      final isForward =
+          edge.fromStarId == firstStar.id && edge.toStarId == secondStar.id;
+      final isBackward =
+          edge.fromStarId == secondStar.id && edge.toStarId == firstStar.id;
+
+      if (isForward || isBackward) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  void _handleTappedStar(Star tappedStar, Constellation constellation) {
     final previousStar = _selectedStar;
 
     if (previousStar != null && previousStar.id != tappedStar.id) {
-      debugPrint('Tapped pair: ${previousStar.name} -> ${tappedStar.name}');
+      final isCorrect = _isCorrectPair(
+        previousStar,
+        tappedStar,
+        constellation,
+      );
+
+      if (isCorrect) {
+        debugPrint('Correct pair: ${previousStar.name} -> ${tappedStar.name}');
+      } else {
+        debugPrint('Wrong pair: ${previousStar.name} -> ${tappedStar.name}');
+      }
     }
 
     setState(() {
@@ -52,7 +81,7 @@ class _StarViewState extends State<StarView> {
             final tappedStar = _findTappedStar(position, constellation);
 
             if (tappedStar != null) {
-              _handleTappedStar(tappedStar);
+              _handleTappedStar(tappedStar, constellation);
             }
           },
           child: CustomPaint(
