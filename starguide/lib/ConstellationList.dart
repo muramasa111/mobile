@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'data/constellation_data.dart';
+import 'ConstellationDetail.dart';
 
 class ConstellationList extends StatelessWidget {
   @override
@@ -14,6 +15,16 @@ class ConstellationList extends StatelessWidget {
           return ListTile(
             title: Text(constellation.name),
             subtitle: Text(constellation.description),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ConstellationDetail(
+                    constellation: constellation,
+                  ),
+                ),
+              );
+            },
           );
         },
       ),
