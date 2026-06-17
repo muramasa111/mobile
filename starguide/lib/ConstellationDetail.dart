@@ -34,6 +34,17 @@ class ConstellationDetail extends StatelessWidget {
                   SizedBox(height: 24),
                   Text("星の数: ${selectedConstellation.stars.length}"),
                   Text("星座線の数: ${selectedConstellation.edges.length}"),
+                  SizedBox(height: 24),
+                  Text(
+                    "含まれる星",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  for (final star in selectedConstellation.stars)
+                    Text("・${star.name}"),
                 ],
               ),
             ),
