@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'StarView.dart';
 //import '../sample/SecondPage.dart';
 //import '../sample/ThirdPage.dart';
+import 'data/progress_data.dart';
 import 'HomePage.dart';
 //import 'List/CouponListView.dart';
 ///mport 'MainPageWidget.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await loadProgress();
   runApp(MyApp());
 }
 
