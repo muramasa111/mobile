@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'data/constellation_data.dart';
+import 'data/progress_data.dart';
 import 'models/constellation.dart';
 import 'models/constellation_edge.dart';
 import 'models/star.dart';
@@ -117,6 +118,7 @@ class _StarViewState extends State<StarView> {
 
           if (!_isConstellationCompleted && _isCompleted(constellation)) {
             _isConstellationCompleted = true;
+            markConstellationCompleted(constellation.id);
             completedNow = true;
           }
         }
