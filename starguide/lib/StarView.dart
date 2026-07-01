@@ -15,6 +15,7 @@ class _StarViewState extends State<StarView> {
   Star? _selectedStar;
   final List<ConstellationEdge> _connectedEdges = [];
   bool _isConstellationCompleted = false;
+  Offset _viewOffset = Offset.zero;
 
   Star? _findTappedStar(Offset position, Constellation constellation) {
     const tapRadius = 16.0;
@@ -145,18 +146,24 @@ class _StarViewState extends State<StarView> {
       body: SizedBox.expand(
         child: GestureDetector(
           onTapDown: (details) {
-            final position = details.localPosition;
+            final position = details.localPosition - _viewOffset;
             final tappedStar = _findTappedStar(position, constellation);
 
             if (tappedStar != null) {
               _handleTappedStar(tappedStar, constellation, context);
             }
           },
+          onPanUpdate: (details) {
+            setState(() {
+              _viewOffset += details.delta;
+            });
+          },
           child: CustomPaint(
             painter: StarPainter(
               constellation: constellation,
               selectedStar: _selectedStar,
               connectedEdges: List.unmodifiable(_connectedEdges),
+              viewOffset: _viewOffset,
             ),
           ),
         ),
@@ -169,11 +176,13 @@ class StarPainter extends CustomPainter {
   final Constellation constellation;
   final Star? selectedStar;
   final List<ConstellationEdge> connectedEdges;
+  final Offset viewOffset;
 
   StarPainter({
     required this.constellation,
     required this.selectedStar,
     required this.connectedEdges,
+    required this.viewOffset,
   });
 
   Star? _findStarById(String starId) {
@@ -188,6 +197,8 @@ class StarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.translate(viewOffset.dx, viewOffset.dy);
+
     final linePaint = Paint()
       ..color = Colors.yellow
       ..strokeWidth = 2;
@@ -216,6 +227,7 @@ class StarPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant StarPainter oldDelegate) {
     return oldDelegate.selectedStar?.id != selectedStar?.id ||
-        oldDelegate.connectedEdges.length != connectedEdges.length;
+        oldDelegate.connectedEdges.length != connectedEdges.length ||
+        oldDelegate.viewOffset != viewOffset;
   }
 }
