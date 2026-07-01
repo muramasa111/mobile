@@ -98,11 +98,7 @@ class _StarViewState extends State<StarView> {
     var completedNow = false;
 
     if (previousStar != null && previousStar.id != tappedStar.id) {
-      final isCorrect = _isCorrectPair(
-        previousStar,
-        tappedStar,
-        constellation,
-      );
+      final isCorrect = _isCorrectPair(previousStar, tappedStar, constellation);
 
       if (isCorrect) {
         debugPrint('Correct pair: ${previousStar.name} -> ${tappedStar.name}');
@@ -115,6 +111,7 @@ class _StarViewState extends State<StarView> {
 
         if (matchingEdge != null && !_isAlreadyConnected(matchingEdge)) {
           _connectedEdges.add(matchingEdge);
+          markConstellationDiscovered(constellation.id);
 
           if (!_isConstellationCompleted && _isCompleted(constellation)) {
             _isConstellationCompleted = true;
@@ -132,11 +129,9 @@ class _StarViewState extends State<StarView> {
     });
 
     if (completedNow) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${constellation.name} 完成！'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${constellation.name} 完成！')));
     }
   }
 
@@ -212,14 +207,9 @@ class StarPainter extends CustomPainter {
 
     for (final star in constellation.stars) {
       final isSelected = selectedStar?.id == star.id;
-      final paint = Paint()
-        ..color = isSelected ? Colors.yellow : Colors.red;
+      final paint = Paint()..color = isSelected ? Colors.yellow : Colors.red;
 
-      canvas.drawCircle(
-        Offset(star.x, star.y),
-        isSelected ? 7 : 4,
-        paint,
-      );
+      canvas.drawCircle(Offset(star.x, star.y), isSelected ? 7 : 4, paint);
     }
   }
 
