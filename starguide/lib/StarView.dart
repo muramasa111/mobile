@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'data/constellation_data.dart';
@@ -23,6 +25,11 @@ class _StarViewState extends State<StarView> {
 
   Constellation get _currentConstellation {
     return constellations[_selectedConstellationIndex];
+  }
+
+  double get _headingDegree {
+    final degree = (-_viewOffset.dx / 3) % 360;
+    return degree < 0 ? degree + 360 : degree;
   }
 
   void _changeConstellation(int index) {
@@ -198,29 +205,45 @@ class _StarViewState extends State<StarView> {
         ],
       ),
       body: SizedBox.expand(
-        child: GestureDetector(
-          onTapDown: (details) {
-            final position = details.localPosition - _viewOffset;
-            final tappedStar = _findTappedStar(position, constellation);
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTapDown: (details) {
+                final position = details.localPosition - _viewOffset;
+                final tappedStar = _findTappedStar(position, constellation);
 
-            if (tappedStar != null) {
-              _handleTappedStar(tappedStar, constellation, context);
-            }
-          },
-          onPanUpdate: (details) {
-            setState(() {
-              _viewOffset += details.delta;
-            });
-          },
-          child: CustomPaint(
-            painter: StarPainter(
-              constellation: constellation,
-              selectedStar: _selectedStar,
-              wrongStar: _wrongStar,
-              connectedEdges: List.unmodifiable(_connectedEdges),
-              viewOffset: _viewOffset,
+                if (tappedStar != null) {
+                  _handleTappedStar(tappedStar, constellation, context);
+                }
+              },
+              onPanUpdate: (details) {
+                setState(() {
+                  _viewOffset += details.delta;
+                });
+              },
+              child: CustomPaint(
+                painter: StarPainter(
+                  constellation: constellation,
+                  selectedStar: _selectedStar,
+                  wrongStar: _wrongStar,
+                  connectedEdges: List.unmodifiable(_connectedEdges),
+                  viewOffset: _viewOffset,
+                ),
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 130,
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: DirectionMeterPainter(headingDegree: _headingDegree),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -299,5 +322,101 @@ class StarPainter extends CustomPainter {
         oldDelegate.wrongStar?.id != wrongStar?.id ||
         oldDelegate.connectedEdges.length != connectedEdges.length ||
         oldDelegate.viewOffset != viewOffset;
+  }
+}
+
+class DirectionMeterPainter extends CustomPainter {
+  final double headingDegree;
+
+  DirectionMeterPainter({required this.headingDegree});
+
+  static const _directionLabels = ['N', 'E', 'S', 'W'];
+
+  String get _currentDirection {
+    final index = ((headingDegree + 45) ~/ 90) % 4;
+    return _directionLabels[index];
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height - 8);
+    final radius = math.min(size.width * 0.48, 112.0);
+    final arcRect = Rect.fromCircle(center: center, radius: radius);
+
+    final basePaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.45)
+      ..style = PaintingStyle.fill;
+    canvas.drawArc(arcRect, math.pi, math.pi, true, basePaint);
+
+    final arcPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.75)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawArc(arcRect, math.pi, math.pi, false, arcPaint);
+
+    for (var degree = -90; degree <= 90; degree += 15) {
+      final isMajor = degree % 45 == 0;
+      final angle = math.pi + (degree + 90) * math.pi / 180;
+      final outer = Offset(
+        center.dx + math.cos(angle) * radius,
+        center.dy + math.sin(angle) * radius,
+      );
+      final innerRadius = radius - (isMajor ? 18 : 10);
+      final inner = Offset(
+        center.dx + math.cos(angle) * innerRadius,
+        center.dy + math.sin(angle) * innerRadius,
+      );
+
+      canvas.drawLine(
+        inner,
+        outer,
+        Paint()
+          ..color = Colors.white.withValues(alpha: isMajor ? 0.9 : 0.45)
+          ..strokeWidth = isMajor ? 2 : 1,
+      );
+    }
+
+    _drawText(canvas, center + const Offset(0, -42), _currentDirection, 22);
+    _drawText(
+      canvas,
+      center + const Offset(0, -18),
+      '${headingDegree.round()}°',
+      13,
+    );
+
+    final needlePaint = Paint()
+      ..color = Colors.yellow
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(center, center + const Offset(0, -92), needlePaint);
+    canvas.drawCircle(center, 5, Paint()..color = Colors.yellow);
+
+    _drawText(canvas, center + Offset(-radius + 18, -14), 'W', 14);
+    _drawText(canvas, center + Offset(radius - 18, -14), 'E', 14);
+    _drawText(canvas, center + Offset(0, -radius + 16), 'N', 14);
+  }
+
+  void _drawText(Canvas canvas, Offset center, String text, double fontSize) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    textPainter.paint(
+      canvas,
+      center - Offset(textPainter.width / 2, textPainter.height / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant DirectionMeterPainter oldDelegate) {
+    return oldDelegate.headingDegree != headingDegree;
   }
 }
