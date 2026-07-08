@@ -1,21 +1,42 @@
 import 'package:flutter/material.dart';
+
 import 'data/constellation_data.dart';
 import 'data/progress_data.dart';
 import 'models/constellation.dart';
 import 'models/constellation_edge.dart';
 import 'models/star.dart';
-//import '../sample/SecondPage.dart';
 
 class StarView extends StatefulWidget {
+  const StarView({super.key});
+
   @override
   State<StarView> createState() => _StarViewState();
 }
 
 class _StarViewState extends State<StarView> {
+  int _selectedConstellationIndex = 0;
   Star? _selectedStar;
+  Star? _wrongStar;
   final List<ConstellationEdge> _connectedEdges = [];
   bool _isConstellationCompleted = false;
   Offset _viewOffset = Offset.zero;
+
+  Constellation get _currentConstellation {
+    return constellations[_selectedConstellationIndex];
+  }
+
+  void _changeConstellation(int index) {
+    setState(() {
+      _selectedConstellationIndex = index;
+      _selectedStar = null;
+      _wrongStar = null;
+      _connectedEdges.clear();
+      _isConstellationCompleted = isConstellationCompleted(
+        _currentConstellation.id,
+      );
+      _viewOffset = Offset.zero;
+    });
+  }
 
   Star? _findTappedStar(Offset position, Constellation constellation) {
     const tapRadius = 16.0;
@@ -90,6 +111,22 @@ class _StarViewState extends State<StarView> {
     return _connectedEdges.length == constellation.edges.length;
   }
 
+  void _showWrongFeedback(Star tappedStar) {
+    setState(() {
+      _wrongStar = tappedStar;
+    });
+
+    Future.delayed(const Duration(milliseconds: 250), () {
+      if (!mounted || _wrongStar?.id != tappedStar.id) {
+        return;
+      }
+
+      setState(() {
+        _wrongStar = null;
+      });
+    });
+  }
+
   void _handleTappedStar(
     Star tappedStar,
     Constellation constellation,
@@ -102,8 +139,6 @@ class _StarViewState extends State<StarView> {
       final isCorrect = _isCorrectPair(previousStar, tappedStar, constellation);
 
       if (isCorrect) {
-        debugPrint('Correct pair: ${previousStar.name} -> ${tappedStar.name}');
-
         final matchingEdge = _findMatchingEdge(
           previousStar,
           tappedStar,
@@ -121,7 +156,7 @@ class _StarViewState extends State<StarView> {
           }
         }
       } else {
-        debugPrint('Wrong pair: ${previousStar.name} -> ${tappedStar.name}');
+        _showWrongFeedback(tappedStar);
       }
     }
 
@@ -130,19 +165,38 @@ class _StarViewState extends State<StarView> {
     });
 
     if (completedNow) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${constellation.name} 完成！')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${constellation.name} 完成！ 図鑑に登録されました')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final constellation = constellations[0];
+    final constellation = _currentConstellation;
 
     return Scaffold(
-      appBar: AppBar(title: Text("天体観測")),
-
+      appBar: AppBar(
+        title: const Text('星空ガイドビュー'),
+        actions: [
+          DropdownButton<int>(
+            value: _selectedConstellationIndex,
+            dropdownColor: Colors.black87,
+            style: const TextStyle(color: Colors.white),
+            underline: const SizedBox.shrink(),
+            items: [
+              for (var i = 0; i < constellations.length; i++)
+                DropdownMenuItem(value: i, child: Text(constellations[i].name)),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                _changeConstellation(value);
+              }
+            },
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
       body: SizedBox.expand(
         child: GestureDetector(
           onTapDown: (details) {
@@ -162,6 +216,7 @@ class _StarViewState extends State<StarView> {
             painter: StarPainter(
               constellation: constellation,
               selectedStar: _selectedStar,
+              wrongStar: _wrongStar,
               connectedEdges: List.unmodifiable(_connectedEdges),
               viewOffset: _viewOffset,
             ),
@@ -175,12 +230,14 @@ class _StarViewState extends State<StarView> {
 class StarPainter extends CustomPainter {
   final Constellation constellation;
   final Star? selectedStar;
+  final Star? wrongStar;
   final List<ConstellationEdge> connectedEdges;
   final Offset viewOffset;
 
   StarPainter({
     required this.constellation,
     required this.selectedStar,
+    required this.wrongStar,
     required this.connectedEdges,
     required this.viewOffset,
   });
@@ -197,6 +254,10 @@ class StarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = const Color(0xFF050816),
+    );
     canvas.translate(viewOffset.dx, viewOffset.dy);
 
     final linePaint = Paint()
@@ -218,15 +279,24 @@ class StarPainter extends CustomPainter {
 
     for (final star in constellation.stars) {
       final isSelected = selectedStar?.id == star.id;
-      final paint = Paint()..color = isSelected ? Colors.yellow : Colors.red;
+      final isWrong = wrongStar?.id == star.id;
+      final paint = Paint()
+        ..color = isWrong
+            ? Colors.grey.shade700
+            : isSelected
+            ? Colors.yellow
+            : star.color;
+      final radius = isSelected ? 7.0 : 4.0 + star.brightness * 2;
 
-      canvas.drawCircle(Offset(star.x, star.y), isSelected ? 7 : 4, paint);
+      canvas.drawCircle(Offset(star.x, star.y), radius, paint);
     }
   }
 
   @override
   bool shouldRepaint(covariant StarPainter oldDelegate) {
-    return oldDelegate.selectedStar?.id != selectedStar?.id ||
+    return oldDelegate.constellation.id != constellation.id ||
+        oldDelegate.selectedStar?.id != selectedStar?.id ||
+        oldDelegate.wrongStar?.id != wrongStar?.id ||
         oldDelegate.connectedEdges.length != connectedEdges.length ||
         oldDelegate.viewOffset != viewOffset;
   }

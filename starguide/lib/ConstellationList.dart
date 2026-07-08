@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+
+import 'ConstellationDetail.dart';
 import 'data/constellation_data.dart';
 import 'data/progress_data.dart';
-import 'ConstellationDetail.dart';
 
 class ConstellationList extends StatelessWidget {
+  const ConstellationList({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('星座一覧')),
+      appBar: AppBar(title: const Text('星座図鑑')),
       body: ListView.builder(
         itemCount: constellations.length,
         itemBuilder: (context, index) {
@@ -25,7 +28,7 @@ class ConstellationList extends StatelessWidget {
                   : '未発見',
             ),
             trailing: completed
-                ? Icon(Icons.check_circle, color: Colors.green)
+                ? const Icon(Icons.check_circle, color: Colors.green)
                 : null,
             onTap: completed
                 ? () {

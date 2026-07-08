@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
-import 'StarView.dart';
-import 'ConstellationList.dart';
+
 import 'ConstellationDetail.dart';
+import 'ConstellationList.dart';
 import 'Settings.dart';
+import 'StarView.dart';
 
 class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("ホーム")),
-      backgroundColor: Color(0xFF1a237e),
+      appBar: AppBar(title: const Text('ホーム')),
+      backgroundColor: const Color(0xFF1a237e),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -18,34 +21,36 @@ class HomePage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => StarView()),
+                  MaterialPageRoute(builder: (context) => const StarView()),
                 );
               },
-              child: Text("天体観測"),
+              child: const Text('星空ガイドビュー'),
             ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ConstellationList()),
-                );
-              },
-              child: Text("星座一覧"),
-            ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ConstellationDetail(),
+                    builder: (context) => const ConstellationList(),
                   ),
                 );
               },
-              child: Text("星座詳細"),
+              child: const Text('星座図鑑'),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ConstellationDetail(),
+                  ),
+                );
+              },
+              child: const Text('星座詳細'),
+            ),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -53,7 +58,7 @@ class HomePage extends StatelessWidget {
                   MaterialPageRoute(builder: (context) => Settings()),
                 );
               },
-              child: Text("　設定　"),
+              child: const Text('設定'),
             ),
           ],
         ),
