@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'ConstellationList.dart';
 import 'StarView.dart';
+import 'widgets/star_background.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -11,10 +12,8 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('ホーム')),
       backgroundColor: const Color(0xFF050816),
-      body: Stack(
-        children: [
-          const Positioned.fill(child: CustomPaint(painter: _HomeStarPainter())),
-          Center(
+      body: StarBackground(
+        child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -42,32 +41,9 @@ class HomePage extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
+        ),
     );
   }
-}
-
-class _HomeStarPainter extends CustomPainter {
-  const _HomeStarPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (var index = 0; index < 100; index++) {
-      final x = (index * 233.0) % size.width;
-      final y = (index * 149.0) % size.height;
-      final radius = 0.7 + (index % 3) * 0.4;
-
-      canvas.drawCircle(
-        Offset(x, y),
-        radius,
-        Paint()..color = Colors.white.withValues(alpha: 0.38),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _HomeStarPainter oldDelegate) => false;
 }
 
 class _HomeMenuButton extends StatelessWidget {
