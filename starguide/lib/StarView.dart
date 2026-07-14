@@ -12,6 +12,13 @@ const _skyWidth = 3600.0;
 const _skyHeight = 1800.0;
 const _minimumSkyOffsetY = -1500.0;
 const _maximumSkyOffsetY = 0.0;
+const _summerTriangleId = 'summer_triangle';
+const _summerTriangleRequiredConstellationIds = ['lyra', 'aquila', 'cygnus'];
+const _summerTriangleEdges = [
+  ConstellationEdge(fromStarId: 'vega', toStarId: 'altair'),
+  ConstellationEdge(fromStarId: 'altair', toStarId: 'deneb'),
+  ConstellationEdge(fromStarId: 'deneb', toStarId: 'vega'),
+];
 
 const _constellationOrigins = <String, Offset>{
   'capricornus': Offset(3000, 1000),
@@ -38,6 +45,16 @@ Offset _initialViewOffset(Constellation constellation) {
   );
 }
 
+class _ConstellationStar {
+  final Constellation constellation;
+  final Star star;
+
+  const _ConstellationStar({
+    required this.constellation,
+    required this.star,
+  });
+}
+
 class StarView extends StatefulWidget {
   const StarView({super.key});
 
@@ -47,10 +64,13 @@ class StarView extends StatefulWidget {
 
 class _StarViewState extends State<StarView> {
   int _selectedConstellationIndex = 0;
-  Star? _selectedStar;
-  Star? _wrongStar;
-  final List<ConstellationEdge> _connectedEdges = [];
-  bool _isConstellationCompleted = false;
+  _ConstellationStar? _selectedStar;
+  _ConstellationStar? _wrongStar;
+  final Map<String, List<ConstellationEdge>> _connectedEdgesByConstellation = {
+    for (final constellation in constellations)
+      constellation.id: <ConstellationEdge>[],
+  };
+  final List<ConstellationEdge> _connectedSummerTriangleEdges = [];
   Offset _viewOffset = Offset.zero;
 
   Constellation get _currentConstellation {
@@ -73,26 +93,24 @@ class _StarViewState extends State<StarView> {
       _selectedConstellationIndex = index;
       _selectedStar = null;
       _wrongStar = null;
-      _connectedEdges.clear();
-      _isConstellationCompleted = isConstellationCompleted(
-        _currentConstellation.id,
-      );
       _viewOffset = _initialViewOffset(_currentConstellation);
     });
   }
 
-  Star? _findTappedStar(Offset position, Constellation constellation) {
+  _ConstellationStar? _findTappedStar(Offset position) {
     const tapRadius = 16.0;
     final skyPosition = Offset(
       _wrapSkyX(position.dx - _viewOffset.dx),
       position.dy - _viewOffset.dy,
     );
 
-    for (final star in constellation.stars) {
-      final starPosition = _starSkyPosition(constellation, star);
+    for (final constellation in constellations) {
+      for (final star in constellation.stars) {
+        final starPosition = _starSkyPosition(constellation, star);
 
-      if ((starPosition - skyPosition).distance <= tapRadius) {
-        return star;
+        if ((starPosition - skyPosition).distance <= tapRadius) {
+          return _ConstellationStar(constellation: constellation, star: star);
+        }
       }
     }
 
@@ -137,8 +155,13 @@ class _StarViewState extends State<StarView> {
     return null;
   }
 
-  bool _isAlreadyConnected(ConstellationEdge targetEdge) {
-    for (final edge in _connectedEdges) {
+  bool _isAlreadyConnected(
+    ConstellationEdge targetEdge,
+    Constellation constellation,
+  ) {
+    final connectedEdges = _connectedEdgesByConstellation[constellation.id]!;
+
+    for (final edge in connectedEdges) {
       final isSameDirection =
           edge.fromStarId == targetEdge.fromStarId &&
           edge.toStarId == targetEdge.toStarId;
@@ -155,16 +178,58 @@ class _StarViewState extends State<StarView> {
   }
 
   bool _isCompleted(Constellation constellation) {
-    return _connectedEdges.length == constellation.edges.length;
+    return _connectedEdgesByConstellation[constellation.id]!.length ==
+        constellation.edges.length;
   }
 
-  void _showWrongFeedback(Star tappedStar) {
+  bool get _canDiscoverSummerTriangle {
+    return _summerTriangleRequiredConstellationIds.every(
+      isConstellationCompleted,
+    );
+  }
+
+  ConstellationEdge? _findSummerTriangleEdge(
+    Star firstStar,
+    Star secondStar,
+  ) {
+    for (final edge in _summerTriangleEdges) {
+      final isForward =
+          edge.fromStarId == firstStar.id && edge.toStarId == secondStar.id;
+      final isBackward =
+          edge.fromStarId == secondStar.id && edge.toStarId == firstStar.id;
+
+      if (isForward || isBackward) {
+        return edge;
+      }
+    }
+
+    return null;
+  }
+
+  bool _isSummerTriangleEdgeAlreadyConnected(ConstellationEdge targetEdge) {
+    for (final edge in _connectedSummerTriangleEdges) {
+      final isSameDirection =
+          edge.fromStarId == targetEdge.fromStarId &&
+          edge.toStarId == targetEdge.toStarId;
+      final isOppositeDirection =
+          edge.fromStarId == targetEdge.toStarId &&
+          edge.toStarId == targetEdge.fromStarId;
+
+      if (isSameDirection || isOppositeDirection) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  void _showWrongFeedback(_ConstellationStar tappedStar) {
     setState(() {
       _wrongStar = tappedStar;
     });
 
     Future.delayed(const Duration(milliseconds: 250), () {
-      if (!mounted || _wrongStar?.id != tappedStar.id) {
+      if (!mounted || _wrongStar?.star.id != tappedStar.star.id) {
         return;
       }
 
@@ -175,31 +240,51 @@ class _StarViewState extends State<StarView> {
   }
 
   void _handleTappedStar(
-    Star tappedStar,
-    Constellation constellation,
+    _ConstellationStar tappedStar,
     BuildContext context,
   ) {
     final previousStar = _selectedStar;
+    final constellation = tappedStar.constellation;
     var completedNow = false;
+    var summerTriangleCompletedNow = false;
 
-    if (previousStar != null && previousStar.id != tappedStar.id) {
-      final isCorrect = _isCorrectPair(previousStar, tappedStar, constellation);
+    if (previousStar != null && previousStar.star.id != tappedStar.star.id) {
+      final isSameConstellation =
+          previousStar.constellation.id == constellation.id;
+      final isConstellationConnection =
+          isSameConstellation &&
+          _isCorrectPair(previousStar.star, tappedStar.star, constellation);
+      final summerTriangleEdge = !isSameConstellation && _canDiscoverSummerTriangle
+          ? _findSummerTriangleEdge(previousStar.star, tappedStar.star)
+          : null;
 
-      if (isCorrect) {
+      if (isConstellationConnection) {
         final matchingEdge = _findMatchingEdge(
-          previousStar,
-          tappedStar,
+          previousStar.star,
+          tappedStar.star,
           constellation,
         );
 
-        if (matchingEdge != null && !_isAlreadyConnected(matchingEdge)) {
-          _connectedEdges.add(matchingEdge);
+        if (matchingEdge != null &&
+            !_isAlreadyConnected(matchingEdge, constellation)) {
+          _connectedEdgesByConstellation[constellation.id]!.add(matchingEdge);
           markConstellationDiscovered(constellation.id);
 
-          if (!_isConstellationCompleted && _isCompleted(constellation)) {
-            _isConstellationCompleted = true;
+          if (!isConstellationCompleted(constellation.id) &&
+              _isCompleted(constellation)) {
             markConstellationCompleted(constellation.id);
             completedNow = true;
+          }
+        }
+      } else if (summerTriangleEdge != null) {
+        if (!_isSummerTriangleEdgeAlreadyConnected(summerTriangleEdge)) {
+          _connectedSummerTriangleEdges.add(summerTriangleEdge);
+
+          if (!isSpecialDiscovered(_summerTriangleId) &&
+              _connectedSummerTriangleEdges.length ==
+                  _summerTriangleEdges.length) {
+            markSpecialDiscovered(_summerTriangleId);
+            summerTriangleCompletedNow = true;
           }
         }
       } else {
@@ -211,7 +296,11 @@ class _StarViewState extends State<StarView> {
       _selectedStar = tappedStar;
     });
 
-    if (completedNow) {
+    if (summerTriangleCompletedNow) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('夏の大三角を発見！ 図鑑に登録されました')),
+      );
+    } else if (completedNow) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${constellation.name} 完成！ 図鑑に登録されました')),
       );
@@ -220,8 +309,6 @@ class _StarViewState extends State<StarView> {
 
   @override
   Widget build(BuildContext context) {
-    final constellation = _currentConstellation;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('星空ガイドビュー'),
@@ -249,13 +336,10 @@ class _StarViewState extends State<StarView> {
           children: [
             GestureDetector(
               onTapDown: (details) {
-                final tappedStar = _findTappedStar(
-                  details.localPosition,
-                  constellation,
-                );
+                final tappedStar = _findTappedStar(details.localPosition);
 
                 if (tappedStar != null) {
-                  _handleTappedStar(tappedStar, constellation, context);
+                  _handleTappedStar(tappedStar, context);
                 }
               },
               onPanUpdate: (details) {
@@ -270,11 +354,20 @@ class _StarViewState extends State<StarView> {
               },
               child: CustomPaint(
                 painter: StarPainter(
-                  constellation: constellation,
                   allConstellations: constellations,
-                  selectedStar: _selectedStar,
-                  wrongStar: _wrongStar,
-                  connectedEdges: List.unmodifiable(_connectedEdges),
+                  selectedStar: _selectedStar?.star,
+                  wrongStar: _wrongStar?.star,
+                  connectedEdgesByConstellation: Map.unmodifiable(
+                    _connectedEdgesByConstellation.map(
+                      (id, edges) => MapEntry(
+                        id,
+                        List<ConstellationEdge>.unmodifiable(edges),
+                      ),
+                    ),
+                  ),
+                  summerTriangleEdges: List<ConstellationEdge>.unmodifiable(
+                    _connectedSummerTriangleEdges,
+                  ),
                   viewOffset: _viewOffset,
                 ),
                 child: const SizedBox.expand(),
@@ -299,26 +392,37 @@ class _StarViewState extends State<StarView> {
 }
 
 class StarPainter extends CustomPainter {
-  final Constellation constellation;
   final List<Constellation> allConstellations;
   final Star? selectedStar;
   final Star? wrongStar;
-  final List<ConstellationEdge> connectedEdges;
+  final Map<String, List<ConstellationEdge>> connectedEdgesByConstellation;
+  final List<ConstellationEdge> summerTriangleEdges;
   final Offset viewOffset;
 
   StarPainter({
-    required this.constellation,
     required this.allConstellations,
     required this.selectedStar,
     required this.wrongStar,
-    required this.connectedEdges,
+    required this.connectedEdgesByConstellation,
+    required this.summerTriangleEdges,
     required this.viewOffset,
   });
 
-  Star? _findStarById(String starId) {
+  Star? _findStarById(Constellation constellation, String starId) {
     for (final star in constellation.stars) {
       if (star.id == starId) {
         return star;
+      }
+    }
+
+    return null;
+  }
+
+  _ConstellationStar? _findConstellationStarById(String starId) {
+    for (final constellation in allConstellations) {
+      final star = _findStarById(constellation, starId);
+      if (star != null) {
+        return _ConstellationStar(constellation: constellation, star: star);
       }
     }
 
@@ -336,6 +440,9 @@ class StarPainter extends CustomPainter {
     final linePaint = Paint()
       ..color = Colors.yellow
       ..strokeWidth = 2;
+    final specialLinePaint = Paint()
+      ..color = Colors.lightBlueAccent
+      ..strokeWidth = 3;
 
     final startX = _wrapSkyX(viewOffset.dx) - _skyWidth;
     final endX = size.width + _skyWidth;
@@ -353,67 +460,69 @@ class StarPainter extends CustomPainter {
         );
       }
 
-      for (final backgroundConstellation in allConstellations) {
-        if (backgroundConstellation.id == constellation.id) {
-          continue;
+      for (final constellation in allConstellations) {
+        for (final edge in connectedEdgesByConstellation[constellation.id]!) {
+          final fromStar = _findStarById(constellation, edge.fromStarId);
+          final toStar = _findStarById(constellation, edge.toStarId);
+
+          if (fromStar != null && toStar != null) {
+            final fromPosition = _starSkyPosition(constellation, fromStar);
+            final toPosition = _starSkyPosition(constellation, toStar);
+            canvas.drawLine(
+              Offset(fromPosition.dx + offsetX, fromPosition.dy),
+              Offset(toPosition.dx + offsetX, toPosition.dy),
+              linePaint,
+            );
+          }
         }
 
-        for (final star in backgroundConstellation.stars) {
-          final starPosition = _starSkyPosition(backgroundConstellation, star);
+        for (final star in constellation.stars) {
+          final isSelected = selectedStar?.id == star.id;
+          final isWrong = wrongStar?.id == star.id;
+          final paint = Paint()
+            ..color = isWrong
+                ? Colors.grey.shade700
+                : isSelected
+                ? Colors.yellow
+                : star.color;
+          final radius = isSelected ? 7.0 : 4.0 + star.brightness * 2;
+          final starPosition = _starSkyPosition(constellation, star);
+
           canvas.drawCircle(
             Offset(starPosition.dx + offsetX, starPosition.dy),
-            2.5 + star.brightness,
-            Paint()..color = Colors.white.withValues(alpha: 0.55),
+            radius,
+            paint,
           );
         }
       }
 
-      for (final edge in connectedEdges) {
-        final fromStar = _findStarById(edge.fromStarId);
-        final toStar = _findStarById(edge.toStarId);
+      for (final edge in summerTriangleEdges) {
+        final fromStar = _findConstellationStarById(edge.fromStarId);
+        final toStar = _findConstellationStarById(edge.toStarId);
 
         if (fromStar != null && toStar != null) {
+          final fromPosition = _starSkyPosition(
+            fromStar.constellation,
+            fromStar.star,
+          );
+          final toPosition = _starSkyPosition(toStar.constellation, toStar.star);
           canvas.drawLine(
-            Offset(
-              _starSkyPosition(constellation, fromStar).dx + offsetX,
-              _starSkyPosition(constellation, fromStar).dy,
-            ),
-            Offset(
-              _starSkyPosition(constellation, toStar).dx + offsetX,
-              _starSkyPosition(constellation, toStar).dy,
-            ),
-            linePaint,
+            Offset(fromPosition.dx + offsetX, fromPosition.dy),
+            Offset(toPosition.dx + offsetX, toPosition.dy),
+            specialLinePaint,
           );
         }
-      }
-
-      for (final star in constellation.stars) {
-        final isSelected = selectedStar?.id == star.id;
-        final isWrong = wrongStar?.id == star.id;
-        final paint = Paint()
-          ..color = isWrong
-              ? Colors.grey.shade700
-              : isSelected
-              ? Colors.yellow
-              : star.color;
-        final radius = isSelected ? 7.0 : 4.0 + star.brightness * 2;
-
-        final starPosition = _starSkyPosition(constellation, star);
-        canvas.drawCircle(
-          Offset(starPosition.dx + offsetX, starPosition.dy),
-          radius,
-          paint,
-        );
       }
     }
   }
 
   @override
   bool shouldRepaint(covariant StarPainter oldDelegate) {
-    return oldDelegate.constellation.id != constellation.id ||
-        oldDelegate.selectedStar?.id != selectedStar?.id ||
+    return oldDelegate.selectedStar?.id != selectedStar?.id ||
         oldDelegate.wrongStar?.id != wrongStar?.id ||
-        oldDelegate.connectedEdges.length != connectedEdges.length ||
+        oldDelegate.connectedEdgesByConstellation !=
+            connectedEdgesByConstellation ||
+        oldDelegate.summerTriangleEdges.length != summerTriangleEdges.length ||
         oldDelegate.viewOffset != viewOffset;
   }
 }
