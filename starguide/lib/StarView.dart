@@ -8,6 +8,36 @@ import 'models/constellation.dart';
 import 'models/constellation_edge.dart';
 import 'models/star.dart';
 
+const _skyWidth = 3600.0;
+const _skyHeight = 1800.0;
+const _minimumSkyOffsetY = -1500.0;
+const _maximumSkyOffsetY = 0.0;
+
+const _constellationOrigins = <String, Offset>{
+  'capricornus': Offset(3000, 1000),
+  'lyra': Offset(1500, 260),
+  'aquila': Offset(1850, 650),
+  'cygnus': Offset(2150, 220),
+};
+
+double _wrapSkyX(double value) {
+  final wrapped = value % _skyWidth;
+  return wrapped < 0 ? wrapped + _skyWidth : wrapped;
+}
+
+Offset _starSkyPosition(Constellation constellation, Star star) {
+  final origin = _constellationOrigins[constellation.id] ?? Offset.zero;
+  return origin + Offset(star.x, star.y);
+}
+
+Offset _initialViewOffset(Constellation constellation) {
+  final origin = _constellationOrigins[constellation.id] ?? Offset.zero;
+  return Offset(
+    _wrapSkyX(-origin.dx + 80),
+    (-origin.dy + 120).clamp(_minimumSkyOffsetY, _maximumSkyOffsetY).toDouble(),
+  );
+}
+
 class StarView extends StatefulWidget {
   const StarView({super.key});
 
@@ -27,8 +57,14 @@ class _StarViewState extends State<StarView> {
     return constellations[_selectedConstellationIndex];
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _viewOffset = _initialViewOffset(_currentConstellation);
+  }
+
   double get _headingDegree {
-    final degree = (-_viewOffset.dx / 3) % 360;
+    final degree = (-_viewOffset.dx / 10) % 360;
     return degree < 0 ? degree + 360 : degree;
   }
 
@@ -41,17 +77,21 @@ class _StarViewState extends State<StarView> {
       _isConstellationCompleted = isConstellationCompleted(
         _currentConstellation.id,
       );
-      _viewOffset = Offset.zero;
+      _viewOffset = _initialViewOffset(_currentConstellation);
     });
   }
 
   Star? _findTappedStar(Offset position, Constellation constellation) {
     const tapRadius = 16.0;
+    final skyPosition = Offset(
+      _wrapSkyX(position.dx - _viewOffset.dx),
+      position.dy - _viewOffset.dy,
+    );
 
     for (final star in constellation.stars) {
-      final starPosition = Offset(star.x, star.y);
+      final starPosition = _starSkyPosition(constellation, star);
 
-      if ((starPosition - position).distance <= tapRadius) {
+      if ((starPosition - skyPosition).distance <= tapRadius) {
         return star;
       }
     }
@@ -209,8 +249,10 @@ class _StarViewState extends State<StarView> {
           children: [
             GestureDetector(
               onTapDown: (details) {
-                final position = details.localPosition - _viewOffset;
-                final tappedStar = _findTappedStar(position, constellation);
+                final tappedStar = _findTappedStar(
+                  details.localPosition,
+                  constellation,
+                );
 
                 if (tappedStar != null) {
                   _handleTappedStar(tappedStar, constellation, context);
@@ -218,12 +260,18 @@ class _StarViewState extends State<StarView> {
               },
               onPanUpdate: (details) {
                 setState(() {
-                  _viewOffset += details.delta;
+                  _viewOffset = Offset(
+                    _wrapSkyX(_viewOffset.dx + details.delta.dx),
+                    (_viewOffset.dy + details.delta.dy)
+                        .clamp(_minimumSkyOffsetY, _maximumSkyOffsetY)
+                        .toDouble(),
+                  );
                 });
               },
               child: CustomPaint(
                 painter: StarPainter(
                   constellation: constellation,
+                  allConstellations: constellations,
                   selectedStar: _selectedStar,
                   wrongStar: _wrongStar,
                   connectedEdges: List.unmodifiable(_connectedEdges),
@@ -252,6 +300,7 @@ class _StarViewState extends State<StarView> {
 
 class StarPainter extends CustomPainter {
   final Constellation constellation;
+  final List<Constellation> allConstellations;
   final Star? selectedStar;
   final Star? wrongStar;
   final List<ConstellationEdge> connectedEdges;
@@ -259,6 +308,7 @@ class StarPainter extends CustomPainter {
 
   StarPainter({
     required this.constellation,
+    required this.allConstellations,
     required this.selectedStar,
     required this.wrongStar,
     required this.connectedEdges,
@@ -281,37 +331,80 @@ class StarPainter extends CustomPainter {
       Offset.zero & size,
       Paint()..color = const Color(0xFF050816),
     );
-    canvas.translate(viewOffset.dx, viewOffset.dy);
+    canvas.translate(0, viewOffset.dy);
 
     final linePaint = Paint()
       ..color = Colors.yellow
       ..strokeWidth = 2;
 
-    for (final edge in connectedEdges) {
-      final fromStar = _findStarById(edge.fromStarId);
-      final toStar = _findStarById(edge.toStarId);
+    final startX = _wrapSkyX(viewOffset.dx) - _skyWidth;
+    final endX = size.width + _skyWidth;
 
-      if (fromStar != null && toStar != null) {
-        canvas.drawLine(
-          Offset(fromStar.x, fromStar.y),
-          Offset(toStar.x, toStar.y),
-          linePaint,
+    for (var offsetX = startX; offsetX <= endX; offsetX += _skyWidth) {
+      for (var index = 0; index < 160; index++) {
+        final x = (index * 233.0) % _skyWidth;
+        final y = 50 + (index * 149.0) % (_skyHeight - 100);
+        final radius = 1.0 + (index % 3) * 0.5;
+
+        canvas.drawCircle(
+          Offset(x + offsetX, y),
+          radius,
+          Paint()..color = Colors.white.withValues(alpha: 0.4),
         );
       }
-    }
 
-    for (final star in constellation.stars) {
-      final isSelected = selectedStar?.id == star.id;
-      final isWrong = wrongStar?.id == star.id;
-      final paint = Paint()
-        ..color = isWrong
-            ? Colors.grey.shade700
-            : isSelected
-            ? Colors.yellow
-            : star.color;
-      final radius = isSelected ? 7.0 : 4.0 + star.brightness * 2;
+      for (final backgroundConstellation in allConstellations) {
+        if (backgroundConstellation.id == constellation.id) {
+          continue;
+        }
 
-      canvas.drawCircle(Offset(star.x, star.y), radius, paint);
+        for (final star in backgroundConstellation.stars) {
+          final starPosition = _starSkyPosition(backgroundConstellation, star);
+          canvas.drawCircle(
+            Offset(starPosition.dx + offsetX, starPosition.dy),
+            2.5 + star.brightness,
+            Paint()..color = Colors.white.withValues(alpha: 0.55),
+          );
+        }
+      }
+
+      for (final edge in connectedEdges) {
+        final fromStar = _findStarById(edge.fromStarId);
+        final toStar = _findStarById(edge.toStarId);
+
+        if (fromStar != null && toStar != null) {
+          canvas.drawLine(
+            Offset(
+              _starSkyPosition(constellation, fromStar).dx + offsetX,
+              _starSkyPosition(constellation, fromStar).dy,
+            ),
+            Offset(
+              _starSkyPosition(constellation, toStar).dx + offsetX,
+              _starSkyPosition(constellation, toStar).dy,
+            ),
+            linePaint,
+          );
+        }
+      }
+
+      for (final star in constellation.stars) {
+        final isSelected = selectedStar?.id == star.id;
+        final isWrong = wrongStar?.id == star.id;
+        final paint = Paint()
+          ..color = isWrong
+              ? Colors.grey.shade700
+              : isSelected
+              ? Colors.yellow
+              : star.color;
+        final radius = isSelected ? 7.0 : 4.0 + star.brightness * 2;
+
+        final starPosition = _starSkyPosition(constellation, star);
+        canvas.drawCircle(
+          Offset(starPosition.dx + offsetX, starPosition.dy),
+          radius,
+          paint,
+        );
+      }
     }
   }
 
