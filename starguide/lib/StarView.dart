@@ -71,6 +71,8 @@ class _StarViewState extends State<StarView> {
       constellation.id: <ConstellationEdge>[],
   };
   final List<ConstellationEdge> _connectedSummerTriangleEdges = [];
+  bool _showConstellationLines = true;
+  bool _showSpecialLines = true;
   Offset _viewOffset = Offset.zero;
 
   Constellation get _currentConstellation {
@@ -328,6 +330,57 @@ class _StarViewState extends State<StarView> {
               }
             },
           ),
+          const SizedBox(width: 8),
+          PopupMenuButton<void>(
+            tooltip: 'ライン表示設定',
+            icon: const Icon(Icons.visibility),
+            color: const Color(0xFF1C2B4A),
+            itemBuilder: (context) => [
+              PopupMenuItem<void>(
+                enabled: false,
+                child: StatefulBuilder(
+                  builder: (context, setMenuState) {
+                    return SizedBox(
+                      width: 220,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              '星座線',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            value: _showConstellationLines,
+                            onChanged: (value) {
+                              setState(() {
+                                _showConstellationLines = value;
+                              });
+                              setMenuState(() {});
+                            },
+                          ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              '特別発見の線',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            value: _showSpecialLines,
+                            onChanged: (value) {
+                              setState(() {
+                                _showSpecialLines = value;
+                              });
+                              setMenuState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
           const SizedBox(width: 12),
         ],
       ),
@@ -368,6 +421,8 @@ class _StarViewState extends State<StarView> {
                   summerTriangleEdges: List<ConstellationEdge>.unmodifiable(
                     _connectedSummerTriangleEdges,
                   ),
+                  showConstellationLines: _showConstellationLines,
+                  showSpecialLines: _showSpecialLines,
                   viewOffset: _viewOffset,
                 ),
                 child: const SizedBox.expand(),
@@ -397,6 +452,8 @@ class StarPainter extends CustomPainter {
   final Star? wrongStar;
   final Map<String, List<ConstellationEdge>> connectedEdgesByConstellation;
   final List<ConstellationEdge> summerTriangleEdges;
+  final bool showConstellationLines;
+  final bool showSpecialLines;
   final Offset viewOffset;
 
   StarPainter({
@@ -405,6 +462,8 @@ class StarPainter extends CustomPainter {
     required this.wrongStar,
     required this.connectedEdgesByConstellation,
     required this.summerTriangleEdges,
+    required this.showConstellationLines,
+    required this.showSpecialLines,
     required this.viewOffset,
   });
 
@@ -461,18 +520,20 @@ class StarPainter extends CustomPainter {
       }
 
       for (final constellation in allConstellations) {
-        for (final edge in connectedEdgesByConstellation[constellation.id]!) {
-          final fromStar = _findStarById(constellation, edge.fromStarId);
-          final toStar = _findStarById(constellation, edge.toStarId);
+        if (showConstellationLines) {
+          for (final edge in connectedEdgesByConstellation[constellation.id]!) {
+            final fromStar = _findStarById(constellation, edge.fromStarId);
+            final toStar = _findStarById(constellation, edge.toStarId);
 
-          if (fromStar != null && toStar != null) {
-            final fromPosition = _starSkyPosition(constellation, fromStar);
-            final toPosition = _starSkyPosition(constellation, toStar);
-            canvas.drawLine(
-              Offset(fromPosition.dx + offsetX, fromPosition.dy),
-              Offset(toPosition.dx + offsetX, toPosition.dy),
-              linePaint,
-            );
+            if (fromStar != null && toStar != null) {
+              final fromPosition = _starSkyPosition(constellation, fromStar);
+              final toPosition = _starSkyPosition(constellation, toStar);
+              canvas.drawLine(
+                Offset(fromPosition.dx + offsetX, fromPosition.dy),
+                Offset(toPosition.dx + offsetX, toPosition.dy),
+                linePaint,
+              );
+            }
           }
         }
 
@@ -496,21 +557,26 @@ class StarPainter extends CustomPainter {
         }
       }
 
-      for (final edge in summerTriangleEdges) {
-        final fromStar = _findConstellationStarById(edge.fromStarId);
-        final toStar = _findConstellationStarById(edge.toStarId);
+      if (showSpecialLines) {
+        for (final edge in summerTriangleEdges) {
+          final fromStar = _findConstellationStarById(edge.fromStarId);
+          final toStar = _findConstellationStarById(edge.toStarId);
 
-        if (fromStar != null && toStar != null) {
-          final fromPosition = _starSkyPosition(
-            fromStar.constellation,
-            fromStar.star,
-          );
-          final toPosition = _starSkyPosition(toStar.constellation, toStar.star);
-          canvas.drawLine(
-            Offset(fromPosition.dx + offsetX, fromPosition.dy),
-            Offset(toPosition.dx + offsetX, toPosition.dy),
-            specialLinePaint,
-          );
+          if (fromStar != null && toStar != null) {
+            final fromPosition = _starSkyPosition(
+              fromStar.constellation,
+              fromStar.star,
+            );
+            final toPosition = _starSkyPosition(
+              toStar.constellation,
+              toStar.star,
+            );
+            canvas.drawLine(
+              Offset(fromPosition.dx + offsetX, fromPosition.dy),
+              Offset(toPosition.dx + offsetX, toPosition.dy),
+              specialLinePaint,
+            );
+          }
         }
       }
     }
@@ -523,6 +589,8 @@ class StarPainter extends CustomPainter {
         oldDelegate.connectedEdgesByConstellation !=
             connectedEdgesByConstellation ||
         oldDelegate.summerTriangleEdges.length != summerTriangleEdges.length ||
+        oldDelegate.showConstellationLines != showConstellationLines ||
+        oldDelegate.showSpecialLines != showSpecialLines ||
         oldDelegate.viewOffset != viewOffset;
   }
 }
