@@ -83,6 +83,28 @@ class _StarViewState extends State<StarView> {
   void initState() {
     super.initState();
     _viewOffset = _initialViewOffset(_currentConstellation);
+    _restoreConnectedEdges();
+  }
+
+  void _restoreConnectedEdges() {
+    for (final constellation in constellations) {
+      final connectedEdges = _connectedEdgesByConstellation[constellation.id]!;
+      connectedEdges.addAll(
+        constellation.edges.where(
+          (edge) => isConstellationEdgeConnected(
+            constellation.id,
+            edge.fromStarId,
+            edge.toStarId,
+          ),
+        ),
+      );
+    }
+
+    _connectedSummerTriangleEdges.addAll(
+      _summerTriangleEdges.where(
+        (edge) => isSpecialEdgeConnected(edge.fromStarId, edge.toStarId),
+      ),
+    );
   }
 
   double get _headingDegree {
@@ -270,6 +292,11 @@ class _StarViewState extends State<StarView> {
         if (matchingEdge != null &&
             !_isAlreadyConnected(matchingEdge, constellation)) {
           _connectedEdgesByConstellation[constellation.id]!.add(matchingEdge);
+          markConstellationEdgeConnected(
+            constellation.id,
+            matchingEdge.fromStarId,
+            matchingEdge.toStarId,
+          );
           markConstellationDiscovered(constellation.id);
 
           if (!isConstellationCompleted(constellation.id) &&
@@ -281,6 +308,10 @@ class _StarViewState extends State<StarView> {
       } else if (summerTriangleEdge != null) {
         if (!_isSummerTriangleEdgeAlreadyConnected(summerTriangleEdge)) {
           _connectedSummerTriangleEdges.add(summerTriangleEdge);
+          markSpecialEdgeConnected(
+            summerTriangleEdge.fromStarId,
+            summerTriangleEdge.toStarId,
+          );
 
           if (!isSpecialDiscovered(_summerTriangleId) &&
               _connectedSummerTriangleEdges.length ==
