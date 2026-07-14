@@ -20,28 +20,25 @@ const _summerTriangleEdges = [
   ConstellationEdge(fromStarId: 'deneb', toStarId: 'vega'),
 ];
 
-const _constellationOrigins = <String, Offset>{
-  'capricornus': Offset(3000, 1000),
-  'lyra': Offset(1500, 260),
-  'aquila': Offset(1850, 650),
-  'cygnus': Offset(2150, 220),
-};
-
 double _wrapSkyX(double value) {
   final wrapped = value % _skyWidth;
   return wrapped < 0 ? wrapped + _skyWidth : wrapped;
 }
 
-Offset _starSkyPosition(Constellation constellation, Star star) {
-  final origin = _constellationOrigins[constellation.id] ?? Offset.zero;
-  return origin + Offset(star.x, star.y);
+Offset _starSkyPosition(Constellation _, Star star) {
+  return Offset(_skyWidth - star.x, star.y);
 }
 
 Offset _initialViewOffset(Constellation constellation) {
-  final origin = _constellationOrigins[constellation.id] ?? Offset.zero;
+  final representativeStar = _starSkyPosition(
+    constellation,
+    constellation.stars.first,
+  );
   return Offset(
-    _wrapSkyX(-origin.dx + 80),
-    (-origin.dy + 120).clamp(_minimumSkyOffsetY, _maximumSkyOffsetY).toDouble(),
+    _wrapSkyX(-representativeStar.dx + 80),
+    (-representativeStar.dy + 120)
+        .clamp(_minimumSkyOffsetY, _maximumSkyOffsetY)
+        .toDouble(),
   );
 }
 
@@ -52,6 +49,16 @@ class _ConstellationStar {
   const _ConstellationStar({
     required this.constellation,
     required this.star,
+  });
+}
+
+class _SkyCoordinates {
+  final double rightAscensionHours;
+  final double declinationDegrees;
+
+  const _SkyCoordinates({
+    required this.rightAscensionHours,
+    required this.declinationDegrees,
   });
 }
 
@@ -107,9 +114,18 @@ class _StarViewState extends State<StarView> {
     );
   }
 
-  double get _headingDegree {
-    final degree = (-_viewOffset.dx / 10) % 360;
-    return degree < 0 ? degree + 360 : degree;
+  _SkyCoordinates _skyCoordinates(BuildContext context) {
+    final screenSize = MediaQuery.sizeOf(context);
+    final topInset = MediaQuery.paddingOf(context).top;
+    final viewportHeight = screenSize.height - kToolbarHeight - topInset;
+    final centerSkyX = _wrapSkyX(screenSize.width / 2 - _viewOffset.dx);
+    final rawSkyX = _wrapSkyX(_skyWidth - centerSkyX);
+    final centerSkyY = viewportHeight / 2 - _viewOffset.dy;
+
+    return _SkyCoordinates(
+      rightAscensionHours: rawSkyX / 150,
+      declinationDegrees: (90 - centerSkyY / 10).clamp(-90, 90).toDouble(),
+    );
   }
 
   void _changeConstellation(int index) {
@@ -342,6 +358,8 @@ class _StarViewState extends State<StarView> {
 
   @override
   Widget build(BuildContext context) {
+    final skyCoordinates = _skyCoordinates(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('星空ガイドビュー'),
@@ -466,7 +484,10 @@ class _StarViewState extends State<StarView> {
               height: 130,
               child: IgnorePointer(
                 child: CustomPaint(
-                  painter: DirectionMeterPainter(headingDegree: _headingDegree),
+                  painter: DirectionMeterPainter(
+                    rightAscensionHours: skyCoordinates.rightAscensionHours,
+                    declinationDegrees: skyCoordinates.declinationDegrees,
+                  ),
                 ),
               ),
             ),
@@ -577,7 +598,9 @@ class StarPainter extends CustomPainter {
                 : isSelected
                 ? Colors.yellow
                 : star.color;
-          final radius = isSelected ? 7.0 : 4.0 + star.brightness * 2;
+          final radius = isSelected
+              ? 9.0
+              : (9.5 - star.magnitude * 1.2).clamp(2.5, 9.5).toDouble();
           final starPosition = _starSkyPosition(constellation, star);
 
           canvas.drawCircle(
@@ -627,20 +650,31 @@ class StarPainter extends CustomPainter {
 }
 
 class DirectionMeterPainter extends CustomPainter {
-  final double headingDegree;
+  final double rightAscensionHours;
+  final double declinationDegrees;
 
-  DirectionMeterPainter({required this.headingDegree});
+  DirectionMeterPainter({
+    required this.rightAscensionHours,
+    required this.declinationDegrees,
+  });
 
-  static const _directionLabels = ['N', 'E', 'S', 'W'];
-
-  String get _currentDirection {
-    final index = ((headingDegree + 45) ~/ 90) % 4;
-    return _directionLabels[index];
+  double _wrapHours(double value) {
+    final wrapped = value % 24;
+    return wrapped < 0 ? wrapped + 24 : wrapped;
   }
 
-  double _relativeDegree(double bearingDegree) {
-    return (bearingDegree - headingDegree + 540) % 360 - 180;
+  String get _rightAscensionText {
+    var totalMinutes = (rightAscensionHours * 60).round();
+    if (totalMinutes >= 24 * 60) {
+      totalMinutes = 0;
+    }
+
+    return 'RA ${totalMinutes ~/ 60}h ${totalMinutes % 60}m';
   }
+
+  String get _currentDirection => _rightAscensionText;
+
+  double get headingDegree => declinationDegrees;
 
   Offset _positionOnArc(Offset center, double radius, double relativeDegree) {
     final angle = math.pi + (relativeDegree + 90) * math.pi / 180;
@@ -667,13 +701,9 @@ class DirectionMeterPainter extends CustomPainter {
       ..strokeWidth = 2;
     canvas.drawArc(arcRect, math.pi, math.pi, false, arcPaint);
 
-    for (var bearing = 0; bearing < 360; bearing += 15) {
-      final relativeDegree = _relativeDegree(bearing.toDouble());
-      if (relativeDegree < -90 || relativeDegree > 90) {
-        continue;
-      }
-
-      final isMajor = bearing % 45 == 0;
+    for (var halfHour = -12; halfHour <= 12; halfHour++) {
+      final relativeDegree = halfHour * 7.5;
+      final isMajor = halfHour % 2 == 0;
       final outer = _positionOnArc(center, radius, relativeDegree);
       final innerRadius = radius - (isMajor ? 18 : 10);
       final inner = _positionOnArc(center, innerRadius, relativeDegree);
@@ -685,6 +715,16 @@ class DirectionMeterPainter extends CustomPainter {
           ..color = Colors.white.withValues(alpha: isMajor ? 0.9 : 0.45)
           ..strokeWidth = isMajor ? 2 : 1,
       );
+
+      if (isMajor) {
+        final hours = _wrapHours(rightAscensionHours - relativeDegree / 15);
+        _drawText(
+          canvas,
+          _positionOnArc(center, radius - 32, relativeDegree),
+          '${hours.round() % 24}h',
+          11,
+        );
+      }
     }
 
     _drawText(canvas, center + const Offset(0, -42), _currentDirection, 22);
@@ -695,26 +735,7 @@ class DirectionMeterPainter extends CustomPainter {
       13,
     );
 
-    const directionLabels = <int, String>{
-      0: 'N',
-      90: 'E',
-      180: 'S',
-      270: 'W',
-    };
-
-    for (final entry in directionLabels.entries) {
-      final relativeDegree = _relativeDegree(entry.key.toDouble());
-      if (relativeDegree < -90 || relativeDegree > 90) {
-        continue;
-      }
-
-      _drawText(
-        canvas,
-        _positionOnArc(center, radius - 30, relativeDegree),
-        entry.value,
-        14,
-      );
-    }
+    _drawText(canvas, center + const Offset(-45, -18), 'Dec', 12);
   }
 
   void _drawText(Canvas canvas, Offset center, String text, double fontSize) {
@@ -738,6 +759,7 @@ class DirectionMeterPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DirectionMeterPainter oldDelegate) {
-    return oldDelegate.headingDegree != headingDegree;
+    return oldDelegate.rightAscensionHours != rightAscensionHours ||
+        oldDelegate.declinationDegrees != declinationDegrees;
   }
 }
