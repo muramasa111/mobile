@@ -539,6 +539,18 @@ class DirectionMeterPainter extends CustomPainter {
     return _directionLabels[index];
   }
 
+  double _relativeDegree(double bearingDegree) {
+    return (bearingDegree - headingDegree + 540) % 360 - 180;
+  }
+
+  Offset _positionOnArc(Offset center, double radius, double relativeDegree) {
+    final angle = math.pi + (relativeDegree + 90) * math.pi / 180;
+    return Offset(
+      center.dx + math.cos(angle) * radius,
+      center.dy + math.sin(angle) * radius,
+    );
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height - 8);
@@ -556,18 +568,16 @@ class DirectionMeterPainter extends CustomPainter {
       ..strokeWidth = 2;
     canvas.drawArc(arcRect, math.pi, math.pi, false, arcPaint);
 
-    for (var degree = -90; degree <= 90; degree += 15) {
-      final isMajor = degree % 45 == 0;
-      final angle = math.pi + (degree + 90) * math.pi / 180;
-      final outer = Offset(
-        center.dx + math.cos(angle) * radius,
-        center.dy + math.sin(angle) * radius,
-      );
+    for (var bearing = 0; bearing < 360; bearing += 15) {
+      final relativeDegree = _relativeDegree(bearing.toDouble());
+      if (relativeDegree < -90 || relativeDegree > 90) {
+        continue;
+      }
+
+      final isMajor = bearing % 45 == 0;
+      final outer = _positionOnArc(center, radius, relativeDegree);
       final innerRadius = radius - (isMajor ? 18 : 10);
-      final inner = Offset(
-        center.dx + math.cos(angle) * innerRadius,
-        center.dy + math.sin(angle) * innerRadius,
-      );
+      final inner = _positionOnArc(center, innerRadius, relativeDegree);
 
       canvas.drawLine(
         inner,
@@ -586,16 +596,26 @@ class DirectionMeterPainter extends CustomPainter {
       13,
     );
 
-    final needlePaint = Paint()
-      ..color = Colors.yellow
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(center, center + const Offset(0, -92), needlePaint);
-    canvas.drawCircle(center, 5, Paint()..color = Colors.yellow);
+    const directionLabels = <int, String>{
+      0: 'N',
+      90: 'E',
+      180: 'S',
+      270: 'W',
+    };
 
-    _drawText(canvas, center + Offset(-radius + 18, -14), 'W', 14);
-    _drawText(canvas, center + Offset(radius - 18, -14), 'E', 14);
-    _drawText(canvas, center + Offset(0, -radius + 16), 'N', 14);
+    for (final entry in directionLabels.entries) {
+      final relativeDegree = _relativeDegree(entry.key.toDouble());
+      if (relativeDegree < -90 || relativeDegree > 90) {
+        continue;
+      }
+
+      _drawText(
+        canvas,
+        _positionOnArc(center, radius - 30, relativeDegree),
+        entry.value,
+        14,
+      );
+    }
   }
 
   void _drawText(Canvas canvas, Offset center, String text, double fontSize) {
